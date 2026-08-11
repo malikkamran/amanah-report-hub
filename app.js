@@ -5,20 +5,42 @@ const BUCKET = "report-screenshots";
 
 const state = {
   issues: [],
-  search: "",
+  statusFilter: "all",
   severityFilter: "all",
 };
 
 const form = document.querySelector("#issueForm");
+const intakePanel = document.querySelector("#intakePanel");
 const issueList = document.querySelector("#issueList");
 const emptyState = document.querySelector("#emptyState");
 const template = document.querySelector("#issueTemplate");
 const syncState = document.querySelector("#syncState");
 const submitBtn = document.querySelector("#submitBtn");
+const toggleFormBtn = document.querySelector("#toggleFormBtn");
+const toast = document.querySelector("#toast");
 const reportedStorageKey = "amanah-reported-issue-ids";
+let toastTimer = null;
 
 function setSync(message) {
   syncState.textContent = message;
+}
+
+function setFormOpen(isOpen) {
+  intakePanel.classList.toggle("is-collapsed", !isOpen);
+  toggleFormBtn.setAttribute("aria-expanded", String(isOpen));
+  toggleFormBtn.textContent = isOpen ? "Close" : "Report Now";
+  if (isOpen) {
+    intakePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function showToast(message) {
+  clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.hidden = false;
+  toastTimer = setTimeout(() => {
+    toast.hidden = true;
+  }, 2200);
 }
 
 function headers(extra = {}) {
@@ -97,7 +119,9 @@ async function addIssue(event) {
 
     state.issues = [fromRow(row), ...state.issues];
     form.reset();
+    setFormOpen(false);
     render();
+    showToast("Report added");
     setSync("Cloud saved");
   } catch (error) {
     setSync(cleanError(error));
@@ -253,11 +277,14 @@ function cleanError(error) {
 }
 
 function filteredIssues() {
-  const query = state.search.trim().toLowerCase();
   return state.issues.filter((issue) => {
-    const text = `${issue.url} ${issue.reportContent} ${issue.platform}`.toLowerCase();
+    const matchesStatus =
+      state.statusFilter === "all" ||
+      (state.statusFilter === "none" && issue.reportCount === 0) ||
+      (state.statusFilter === "community" && issue.reportCount > 0) ||
+      (state.statusFilter === "mine" && hasReportedLocally(issue.id));
     return (
-      (!query || text.includes(query)) &&
+      matchesStatus &&
       (state.severityFilter === "all" || issue.severity === state.severityFilter)
     );
   });
@@ -368,10 +395,14 @@ function render() {
 
 form.addEventListener("submit", addIssue);
 
+toggleFormBtn.addEventListener("click", () => {
+  setFormOpen(intakePanel.classList.contains("is-collapsed"));
+});
+
 document.querySelector("#refreshBtn").addEventListener("click", refreshData);
 
-document.querySelector("#search").addEventListener("input", (event) => {
-  state.search = event.target.value;
+document.querySelector("#statusFilter").addEventListener("change", (event) => {
+  state.statusFilter = event.target.value;
   renderIssues();
 });
 

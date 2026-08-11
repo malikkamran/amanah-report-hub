@@ -17,13 +17,16 @@
         <h1>Amanah Report Hub</h1>
       </div>
       <div class="top-actions">
+        <button id="toggleFormBtn" class="primary compact-primary" type="button" aria-expanded="false" aria-controls="intakePanel">
+          Report Now
+        </button>
         <span id="syncState" class="pill">Connecting...</span>
         <button id="refreshBtn" class="secondary" type="button">Refresh</button>
       </div>
     </header>
 
     <main class="layout">
-      <section class="panel intake" aria-labelledby="intake-title">
+      <section id="intakePanel" class="panel intake is-collapsed" aria-labelledby="intake-title">
         <div class="section-heading">
           <div>
             <p class="eyebrow">Submit</p>
@@ -51,7 +54,7 @@
               </select>
             </label>
             <label>
-              Version / Priority
+              Priority
               <select name="severity">
                 <option>Needs review</option>
                 <option>Low</option>
@@ -82,7 +85,7 @@
         <section class="stats" aria-label="Queue summary">
           <article>
             <span id="totalCount">0</span>
-            <p>Total issues</p>
+            <p>Total</p>
           </article>
           <article>
             <span id="openCount">0</span>
@@ -90,16 +93,21 @@
           </article>
           <article>
             <span id="reportedCount">0</span>
-            <p>Reported</p>
+            <p>Reports</p>
           </article>
           <article>
             <span id="highCount">0</span>
-            <p>High priority</p>
+            <p>High</p>
           </article>
         </section>
 
         <section class="panel filters" aria-label="Filters">
-          <input id="search" type="search" placeholder="Search URL, report content, platform..." />
+          <select id="statusFilter">
+            <option value="all">All status</option>
+            <option value="none">Not reported yet</option>
+            <option value="community">Reported by community</option>
+            <option value="mine">Reported by me</option>
+          </select>
           <select id="severityFilter">
             <option value="all">All priorities</option>
             <option>High</option>
@@ -122,6 +130,8 @@
       </section>
 
     </main>
+
+    <p id="toast" class="toast" role="status" aria-live="polite" hidden></p>
 
     <template id="issueTemplate">
       <article class="issue-card">
