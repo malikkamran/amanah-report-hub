@@ -1,13 +1,10 @@
-const BUCKET = "JckQNAWfmZCAp4jDg3VzR";
-const STORE_BASE = `https://kvdb.io/${BUCKET}`;
-const INDEX_KEY = "amanah-index";
-const MAX_VALUE_CHARS = 15000;
-const IMAGE_CHUNK_SIZE = 12000;
-const MAX_IMAGE_CHUNKS = 5;
+const SUPABASE_URL = "https://uefhikvumolbmwaifbyb.supabase.co";
+const SUPABASE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlZmhpa3Z1bW9sYm13YWlmYnliIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0MTEzMjcsImV4cCI6MjEwMTk4NzMyN30.w97gzePYp4j93AL_R48dbyqbMekMrMXzG40prRiQY4g";
+const BUCKET = "report-screenshots";
 
 const state = {
   issues: [],
-  index: { ids: [], deletedIds: [] },
   search: "",
   statusFilter: "all",
   severityFilter: "all",
@@ -20,137 +17,41 @@ const template = document.querySelector("#issueTemplate");
 const syncState = document.querySelector("#syncState");
 const submitBtn = document.querySelector("#submitBtn");
 
-function keyUrl(key) {
-  return `${STORE_BASE}/${encodeURIComponent(key)}`;
-}
-
 function setSync(message) {
   syncState.textContent = message;
 }
 
-async function requestText(url, options = {}) {
-  const response = await fetch(url, options);
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(text || `Request failed (${response.status})`);
-  }
-  return text;
-}
-
-async function getJson(key, fallback = null) {
-  try {
-    const text = await requestText(keyUrl(key));
-    return JSON.parse(text);
-  } catch (error) {
-    if (String(error.message).includes("404") || String(error.message).includes("Not Found")) {
-      return fallback;
-    }
-    throw error;
-  }
-}
-
-async function setValue(key, value) {
-  const body = typeof value === "string" ? value : JSON.stringify(value);
-  if (body.length > MAX_VALUE_CHARS) {
-    throw new Error("Data is too large. Shorten the text or crop the screenshot.");
-  }
-  await requestText(keyUrl(key), {
-    method: "POST",
-    headers: { "content-type": "text/plain;charset=UTF-8" },
-    body,
-  });
-}
-
-async function loadIndex() {
-  const index = await getJson(INDEX_KEY, { ids: [], deletedIds: [] });
+function headers(extra = {}) {
   return {
-    ids: Array.isArray(index.ids) ? index.ids : [],
-    deletedIds: Array.isArray(index.deletedIds) ? index.deletedIds : [],
+    apikey: SUPABASE_KEY,
+    authorization: `Bearer ${SUPABASE_KEY}`,
+    ...extra,
   };
 }
 
-async function saveIndex(index) {
-  await setValue(INDEX_KEY, index);
-}
-
-function issueKey(id) {
-  return `issue-${id}`;
-}
-
-function imageChunkKey(id, index) {
-  return `image-${id}-${index}`;
-}
-
-async function saveIssue(issue) {
-  const toStore = { ...issue };
-
-  if (toStore.screenshot && !toStore.screenshotChunks) {
-    toStore.screenshotChunks = await saveImageChunks(issue.id, toStore.screenshot);
+async function requestJson(url, options = {}) {
+  const response = await fetch(url, options);
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || `Request failed (${response.status})`);
   }
-
-  delete toStore.screenshot;
-  await setValue(issueKey(issue.id), toStore);
-}
-
-async function saveImageChunks(id, dataUrl) {
-  const chunks = [];
-  for (let offset = 0; offset < dataUrl.length; offset += IMAGE_CHUNK_SIZE) {
-    chunks.push(dataUrl.slice(offset, offset + IMAGE_CHUNK_SIZE));
-  }
-  if (chunks.length > MAX_IMAGE_CHUNKS) {
-    throw new Error("Screenshot is too large after compression. Crop it smaller first.");
-  }
-  await Promise.all(chunks.map((chunk, index) => setValue(imageChunkKey(id, index), chunk)));
-  return chunks.length;
-}
-
-async function loadImageChunks(id, count) {
-  if (!count) return "";
-  const chunks = await Promise.all(
-    Array.from({ length: count }, (_, index) => requestText(keyUrl(imageChunkKey(id, index))))
-  );
-  return chunks.join("");
-}
-
-async function loadIssue(id) {
-  const issue = normalizeIssue(await getJson(issueKey(id)));
-  issue.screenshot = await loadImageChunks(issue.id, issue.screenshotChunks);
-  return issue;
+  return data;
 }
 
 async function refreshData() {
   setSync("Loading...");
   try {
-    state.index = await loadIndex();
-    const ids = state.index.ids.filter((id) => !state.index.deletedIds.includes(id));
-    const results = await Promise.allSettled(ids.map(loadIssue));
-    state.issues = results
-      .filter((result) => result.status === "fulfilled")
-      .map((result) => result.value)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const rows = await requestJson(
+      `${SUPABASE_URL}/rest/v1/report_issues?select=*&order=created_at.desc`,
+      { headers: headers() }
+    );
+    state.issues = rows.map(fromRow);
     render();
     setSync("Cloud saved");
   } catch (error) {
     setSync(cleanError(error));
   }
-}
-
-function normalizeIssue(issue = {}) {
-  return {
-    id: issue.id || crypto.randomUUID(),
-    url: issue.url || "",
-    platform: issue.platform || "Website",
-    severity: issue.severity || "Needs review",
-    description: issue.description || "",
-    reportContent: issue.reportContent || "",
-    screenshot: issue.screenshot || "",
-    screenshotChunks: issue.screenshotChunks || 0,
-    screenshotName: issue.screenshotName || "",
-    status: issue.status || "Open",
-    checklist: issue.checklist || {},
-    createdAt: issue.createdAt || new Date().toISOString(),
-    updatedAt: issue.updatedAt || new Date().toISOString(),
-  };
 }
 
 async function addIssue(event) {
@@ -162,34 +63,38 @@ async function addIssue(event) {
   try {
     const data = new FormData(form);
     const screenshotFile = data.get("screenshot");
-    const issue = normalizeIssue({
-      id: crypto.randomUUID(),
+    let screenshotPath = "";
+    let screenshotName = "";
+
+    if (screenshotFile && screenshotFile.size) {
+      const image = await compressImage(screenshotFile);
+      screenshotPath = `${crypto.randomUUID()}.jpg`;
+      screenshotName = screenshotFile.name || "screenshot.jpg";
+      await uploadScreenshot(screenshotPath, image.blob);
+    }
+
+    const payload = {
       url: data.get("url").trim(),
       platform: data.get("platform"),
       severity: data.get("severity"),
       description: data.get("description").trim(),
-      reportContent: data.get("reportContent").trim(),
-      screenshot:
-        screenshotFile && screenshotFile.size
-          ? await compressImage(screenshotFile)
-          : "",
-      screenshotName: screenshotFile?.name || "",
+      report_content: data.get("reportContent").trim(),
+      screenshot_path: screenshotPath || null,
+      screenshot_name: screenshotName || null,
       status: "Open",
       checklist: {},
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    };
+
+    const [row] = await requestJson(`${SUPABASE_URL}/rest/v1/report_issues`, {
+      method: "POST",
+      headers: headers({
+        "content-type": "application/json",
+        prefer: "return=representation",
+      }),
+      body: JSON.stringify(payload),
     });
 
-    await saveIssue(issue);
-    const latestIndex = await loadIndex();
-    const nextIndex = {
-      ids: [issue.id, ...latestIndex.ids.filter((id) => id !== issue.id)].slice(0, 160),
-      deletedIds: latestIndex.deletedIds || [],
-    };
-    await saveIndex(nextIndex);
-
-    state.index = nextIndex;
-    state.issues = [issue, ...state.issues];
+    state.issues = [fromRow(row), ...state.issues];
     form.reset();
     render();
     setSync("Cloud saved");
@@ -198,6 +103,28 @@ async function addIssue(event) {
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = "Add to queue";
+  }
+}
+
+async function uploadScreenshot(path, blob) {
+  const response = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${encodeURIComponent(path)}`,
+    {
+      method: "POST",
+      headers: headers({
+        "content-type": "image/jpeg",
+        "x-upsert": "true",
+      }),
+      body: blob,
+    }
+  );
+  const text = await response.text();
+  if (!response.ok) {
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch {}
+    throw new Error(data.message || data.error || "Screenshot upload failed");
   }
 }
 
@@ -210,8 +137,21 @@ async function updateIssue(issue, changes) {
   state.issues = state.issues.map((item) => (item.id === issue.id ? nextIssue : item));
   render();
   setSync("Saving...");
+
   try {
-    await saveIssue(nextIssue);
+    const payload = {};
+    if (changes.status) payload.status = changes.status;
+    if (changes.checklist) payload.checklist = changes.checklist;
+    payload.updated_at = new Date().toISOString();
+
+    await requestJson(`${SUPABASE_URL}/rest/v1/report_issues?id=eq.${issue.id}`, {
+      method: "PATCH",
+      headers: headers({
+        "content-type": "application/json",
+        prefer: "return=minimal",
+      }),
+      body: JSON.stringify(payload),
+    });
     setSync("Cloud saved");
   } catch (error) {
     setSync(cleanError(error));
@@ -223,18 +163,54 @@ async function deleteIssue(issue) {
   state.issues = state.issues.filter((item) => item.id !== issue.id);
   render();
   setSync("Saving...");
+
   try {
-    const latestIndex = await loadIndex();
-    state.index = {
-      ids: latestIndex.ids.filter((id) => id !== issue.id),
-      deletedIds: [...new Set([...(latestIndex.deletedIds || []), issue.id])].slice(0, 300),
-    };
-    await saveIndex(state.index);
+    await requestJson(`${SUPABASE_URL}/rest/v1/report_issues?id=eq.${issue.id}`, {
+      method: "DELETE",
+      headers: headers({ prefer: "return=minimal" }),
+    });
     setSync("Cloud saved");
   } catch (error) {
     setSync(cleanError(error));
     await refreshData();
   }
+}
+
+function fromRow(row) {
+  return normalizeIssue({
+    id: row.id,
+    url: row.url,
+    platform: row.platform,
+    severity: row.severity,
+    description: row.description,
+    reportContent: row.report_content,
+    screenshot:
+      row.screenshot_path
+        ? `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(row.screenshot_path)}`
+        : "",
+    screenshotName: row.screenshot_name || "",
+    status: row.status,
+    checklist: row.checklist || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  });
+}
+
+function normalizeIssue(issue = {}) {
+  return {
+    id: issue.id || crypto.randomUUID(),
+    url: issue.url || "",
+    platform: issue.platform || "Website",
+    severity: issue.severity || "Needs review",
+    description: issue.description || "",
+    reportContent: issue.reportContent || "",
+    screenshot: issue.screenshot || "",
+    screenshotName: issue.screenshotName || "",
+    status: issue.status || "Open",
+    checklist: issue.checklist || {},
+    createdAt: issue.createdAt || new Date().toISOString(),
+    updatedAt: issue.updatedAt || new Date().toISOString(),
+  };
 }
 
 async function compressImage(file) {
@@ -243,7 +219,7 @@ async function compressImage(file) {
   image.src = imageUrl;
   await image.decode();
 
-  const maxSide = 540;
+  const maxSide = 900;
   const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(image.width * scale));
@@ -252,10 +228,12 @@ async function compressImage(file) {
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   URL.revokeObjectURL(imageUrl);
 
-  for (const quality of [0.68, 0.52, 0.38, 0.26]) {
-    const dataUrl = canvas.toDataURL("image/jpeg", quality);
-    if (dataUrl.length <= IMAGE_CHUNK_SIZE * MAX_IMAGE_CHUNKS) {
-      return dataUrl;
+  for (const quality of [0.78, 0.62, 0.48, 0.34]) {
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    );
+    if (blob && blob.size <= 2.8 * 1024 * 1024) {
+      return { blob };
     }
   }
 
@@ -279,8 +257,9 @@ async function copyText(text) {
 
 function cleanError(error) {
   const message = error?.message || String(error);
-  if (message.includes("too large")) return "Too large: shorten text or crop screenshot";
   if (message.includes("Failed to fetch")) return "Cloud connection failed";
+  if (message.includes("row-level security")) return "Cloud permission error";
+  if (message.includes("too large")) return "Too large: crop screenshot or shorten text";
   return message.slice(0, 80);
 }
 

@@ -4,6 +4,10 @@ Public static deployment for Amanah Report Hub.
 
 Hosting: GitHub Pages.
 
-Cloud storage: KVdb free key-value bucket. The app stores a small index, one metadata key per issue, and compressed screenshot chunks per issue. This keeps the browser experience fast and avoids paid infrastructure.
+Cloud backend: Supabase free project.
 
-Important: KVdb requires the bucket owner's email to be verified before browser writes are accepted.
+- Database table: `report_issues`
+- Storage bucket: `report-screenshots`
+- Hosting: GitHub Pages
+
+The frontend uses Supabase's public anon key with row-level security policies that allow open community read/write/update/delete for this prototype.
