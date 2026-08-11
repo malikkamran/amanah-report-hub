@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Amanah Report Hub</title>
+    <meta
+      name="description"
+      content="A public community queue for sharing reportable issue links, copy-ready report text, and screenshots."
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Community Reporting Workspace</p>
+        <h1>Amanah Report Hub</h1>
+      </div>
+      <div class="top-actions">
+        <span id="syncState" class="pill">Connecting...</span>
+        <button id="refreshBtn" class="secondary" type="button">Refresh</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel intake" aria-labelledby="intake-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Submit</p>
+            <h2 id="intake-title">Add an issue</h2>
+          </div>
+        </div>
+
+        <form id="issueForm">
+          <p class="helper">
+            Kya add karna hai: issue ka URL, platform, priority, jo problem dikh
+            rahi hai uski description, report box me paste karne wala exact
+            content, aur zarurat ho to screenshot. Next person link open karke
+            content copy karega aur platform par report submit karega.
+          </p>
+          <label>
+            URL
+            <input name="url" type="url" placeholder="https://example.com/post/123" required />
+          </label>
+          <div class="grid-two">
+            <label>
+              Platform
+              <select name="platform">
+                <option>Website</option>
+                <option>WeChat</option>
+                <option>Weibo</option>
+                <option>Douyin</option>
+                <option>Bilibili</option>
+                <option>X / Twitter</option>
+                <option>YouTube</option>
+                <option>Other</option>
+              </select>
+            </label>
+            <label>
+              Version / Priority
+              <select name="severity">
+                <option>Needs review</option>
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            Description
+            <textarea
+              name="description"
+              rows="4"
+              placeholder="What is visible on this link? Add exact claim, context, date, user handle, and any detail people should know before reporting."
+              required
+            ></textarea>
+          </label>
+          <label>
+            Report content to copy
+            <textarea
+              name="reportContent"
+              rows="5"
+              placeholder="Paste the exact text people should submit when reporting this issue."
+              required
+            ></textarea>
+          </label>
+          <label>
+            Screenshot / picture
+            <input name="screenshot" type="file" accept="image/*" />
+            <span class="field-note">Images are compressed before cloud save.</span>
+          </label>
+          <button id="submitBtn" class="primary" type="submit">Add to queue</button>
+        </form>
+      </section>
+
+      <section class="workspace">
+        <section class="stats" aria-label="Queue summary">
+          <article>
+            <span id="totalCount">0</span>
+            <p>Total issues</p>
+          </article>
+          <article>
+            <span id="openCount">0</span>
+            <p>Open</p>
+          </article>
+          <article>
+            <span id="reportedCount">0</span>
+            <p>Reported</p>
+          </article>
+          <article>
+            <span id="highCount">0</span>
+            <p>High priority</p>
+          </article>
+        </section>
+
+        <section class="panel filters" aria-label="Filters">
+          <input id="search" type="search" placeholder="Search URL, description, report content, platform..." />
+          <select id="statusFilter">
+            <option value="all">All statuses</option>
+            <option value="Open">Open</option>
+            <option value="Reported">Reported</option>
+            <option value="Resolved">Resolved</option>
+          </select>
+          <select id="severityFilter">
+            <option value="all">All priorities</option>
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+            <option>Needs review</option>
+          </select>
+        </section>
+
+        <section class="panel queue" aria-labelledby="queue-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Daily Queue</p>
+              <h2 id="queue-title">Issues to review and report</h2>
+            </div>
+          </div>
+          <div id="issueList" class="issue-list"></div>
+          <p id="emptyState" class="empty">No issues yet. Add a URL.</p>
+        </section>
+      </section>
+
+      <aside class="panel resources" aria-labelledby="resources-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Channels</p>
+            <h2 id="resources-title">Where to report</h2>
+          </div>
+        </div>
+        <div class="channel-list">
+          <article class="channel-card">
+            <h3>12377 China Internet Reporting Center</h3>
+            <p>For illegal or harmful online information in China, including ethnic hatred, discrimination, rumors, extremism, and rights infringement.</p>
+            <a href="https://www.12377.cn/" target="_blank" rel="noreferrer">Open channel</a>
+          </article>
+          <article class="channel-card">
+            <h3>MPS Cyber Police Reporting</h3>
+            <p>For suspected internet illegal or criminal information. Emergencies should go to local police or 110, not this hub.</p>
+            <a href="https://cyberpolice.mps.gov.cn/" target="_blank" rel="noreferrer">Open channel</a>
+          </article>
+          <article class="channel-card">
+            <h3>12321 Bad and Spam Information Center</h3>
+            <p>For spam SMS, nuisance calls, phishing, bad apps, websites, email abuse, and personal information leakage.</p>
+            <a href="https://www.12321.cn/" target="_blank" rel="noreferrer">Open channel</a>
+          </article>
+          <article class="channel-card">
+            <h3>Original Platform Report Flow</h3>
+            <p>Usually the fastest path is the report menu inside WeChat, Weibo, Douyin, Bilibili, YouTube, X, or the original website.</p>
+            <a href="https://www.google.com/search?q=how+to+report+content+on+the+platform" target="_blank" rel="noreferrer">Open channel</a>
+          </article>
+        </div>
+
+        <div class="guidelines">
+          <h3>Community rules</h3>
+          <ul>
+            <li>Report only content you can locate and describe accurately.</li>
+            <li>Do not mass-report unrelated content or harass an account.</li>
+            <li>Prefer exact quotes, screenshots, date, platform, and URL.</li>
+            <li>Use official platform or authority channels.</li>
+          </ul>
+        </div>
+      </aside>
+    </main>
+
+    <template id="issueTemplate">
+      <article class="issue-card">
+        <div class="issue-head">
+          <div>
+            <p class="meta"></p>
+            <h3></h3>
+          </div>
+          <span class="badge"></span>
+        </div>
+        <a class="url" target="_blank" rel="noreferrer"></a>
+        <p class="description"></p>
+        <img class="screenshot-preview" alt="Attached screenshot" />
+        <div class="report-content"></div>
+        <div class="checklist">
+          <label><input type="checkbox" data-step="verified" /> Link checked</label>
+          <label><input type="checkbox" data-step="copied" /> Text copied</label>
+          <label><input type="checkbox" data-step="reported" /> Report submitted</label>
+        </div>
+        <div class="card-actions">
+          <button type="button" data-action="open">Open issue link</button>
+          <button type="button" data-action="copy">Copy report content</button>
+          <button type="button" data-action="reported">Mark reported</button>
+          <button type="button" data-action="resolved">Resolve</button>
+          <button type="button" data-action="delete" class="danger">Delete</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
