@@ -77,7 +77,7 @@ async function addIssue(event) {
       url: data.get("url").trim(),
       platform: data.get("platform"),
       severity: data.get("severity"),
-      description: data.get("description").trim(),
+      description: "",
       report_content: data.get("reportContent").trim(),
       screenshot_path: screenshotPath || null,
       screenshot_name: screenshotName || null,
@@ -266,8 +266,7 @@ function cleanError(error) {
 function filteredIssues() {
   const query = state.search.trim().toLowerCase();
   return state.issues.filter((issue) => {
-    const text =
-      `${issue.url} ${issue.description} ${issue.reportContent} ${issue.platform}`.toLowerCase();
+    const text = `${issue.url} ${issue.reportContent} ${issue.platform}`.toLowerCase();
     return (
       (!query || text.includes(query)) &&
       (state.statusFilter === "all" || issue.status === state.statusFilter) &&
@@ -305,13 +304,13 @@ function renderIssues() {
     const card = node.querySelector(".issue-card");
     const screenshot = node.querySelector(".screenshot-preview");
     card.dataset.id = issue.id;
-    node.querySelector(".meta").textContent = `${issue.platform} · ${issue.status}`;
+    node.querySelector(".platform-tag").textContent = issue.platform;
     node.querySelector("h3").textContent = issueTitle(issue);
     node.querySelector(".badge").textContent = issue.severity;
     node.querySelector(".badge").style.background = badgeColor(issue.severity);
+    node.querySelector(".status-pill").textContent = issue.status;
     node.querySelector(".url").textContent = issue.url;
     node.querySelector(".url").href = issue.url;
-    node.querySelector(".description").textContent = issue.description;
     node.querySelector(".report-content").textContent = issue.reportContent;
 
     if (issue.screenshot) {
@@ -319,11 +318,8 @@ function renderIssues() {
       screenshot.hidden = false;
     } else {
       screenshot.hidden = true;
+      node.querySelector('[data-action="screenshot"]').disabled = true;
     }
-
-    node.querySelectorAll(".checklist input").forEach((checkbox) => {
-      checkbox.checked = Boolean(issue.checklist?.[checkbox.dataset.step]);
-    });
     issueList.appendChild(node);
   });
 }
@@ -385,7 +381,10 @@ issueList.addEventListener("click", async (event) => {
       checklist: { ...issue.checklist, copied: true },
     });
     button.textContent = "Copied";
-    setTimeout(() => (button.textContent = "Copy report content"), 1200);
+    setTimeout(() => (button.textContent = "Copy"), 1200);
+  }
+  if (action === "screenshot" && issue.screenshot) {
+    window.open(issue.screenshot, "_blank", "noreferrer");
   }
   if (action === "reported") {
     await updateIssue(issue, {
@@ -393,27 +392,20 @@ issueList.addEventListener("click", async (event) => {
       checklist: { ...issue.checklist, reported: true },
     });
   }
+  if (action === "details") {
+    const details = card.querySelector(".issue-details");
+    const adminActions = card.querySelector(".admin-actions");
+    const shouldOpen = details.hidden;
+    details.hidden = !shouldOpen;
+    adminActions.hidden = !shouldOpen;
+    button.textContent = shouldOpen ? "Hide" : "Details";
+  }
   if (action === "resolved") {
     await updateIssue(issue, { status: "Resolved" });
   }
   if (action === "delete") {
     await deleteIssue(issue);
   }
-});
-
-issueList.addEventListener("change", async (event) => {
-  const checkbox = event.target.closest("input[type='checkbox']");
-  if (!checkbox) return;
-  const card = event.target.closest(".issue-card");
-  const issue = state.issues.find((item) => item.id === card.dataset.id);
-  if (!issue) return;
-
-  await updateIssue(issue, {
-    checklist: { ...issue.checklist, [checkbox.dataset.step]: checkbox.checked },
-    ...(checkbox.dataset.step === "reported" && checkbox.checked
-      ? { status: "Reported" }
-      : {}),
-  });
 });
 
 refreshData();

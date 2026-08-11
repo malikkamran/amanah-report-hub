@@ -32,12 +32,6 @@
         </div>
 
         <form id="issueForm">
-          <p class="helper">
-            Kya add karna hai: issue ka URL, platform, priority, jo problem dikh
-            rahi hai uski description, report box me paste karne wala exact
-            content, aur zarurat ho to screenshot. Next person link open karke
-            content copy karega aur platform par report submit karega.
-          </p>
           <label>
             URL
             <input name="url" type="url" placeholder="https://example.com/post/123" required />
@@ -66,15 +60,6 @@
               </select>
             </label>
           </div>
-          <label>
-            Description
-            <textarea
-              name="description"
-              rows="4"
-              placeholder="What is visible on this link? Add exact claim, context, date, user handle, and any detail people should know before reporting."
-              required
-            ></textarea>
-          </label>
           <label>
             Report content to copy
             <textarea
@@ -114,7 +99,7 @@
         </section>
 
         <section class="panel filters" aria-label="Filters">
-          <input id="search" type="search" placeholder="Search URL, description, report content, platform..." />
+          <input id="search" type="search" placeholder="Search URL, report content, platform..." />
           <select id="statusFilter">
             <option value="all">All statuses</option>
             <option value="Open">Open</option>
@@ -146,26 +131,29 @@
 
     <template id="issueTemplate">
       <article class="issue-card">
-        <div class="issue-head">
-          <div>
-            <p class="meta"></p>
+        <div class="issue-main">
+          <div class="issue-summary">
+            <div class="tag-row">
+              <span class="platform-tag"></span>
+              <span class="badge"></span>
+              <span class="status-pill"></span>
+            </div>
             <h3></h3>
+            <a class="url" target="_blank" rel="noreferrer"></a>
           </div>
-          <span class="badge"></span>
+          <div class="quick-actions">
+            <button type="button" data-action="open">Open</button>
+            <button type="button" data-action="copy">Copy</button>
+            <button type="button" data-action="screenshot">Image</button>
+            <button type="button" data-action="reported">Reported</button>
+            <button type="button" data-action="details">Details</button>
+          </div>
         </div>
-        <a class="url" target="_blank" rel="noreferrer"></a>
-        <p class="description"></p>
-        <img class="screenshot-preview" alt="Attached screenshot" />
-        <div class="report-content"></div>
-        <div class="checklist">
-          <label><input type="checkbox" data-step="verified" /> Link checked</label>
-          <label><input type="checkbox" data-step="copied" /> Text copied</label>
-          <label><input type="checkbox" data-step="reported" /> Report submitted</label>
+        <div class="issue-details" hidden>
+          <div class="report-content"></div>
+          <img class="screenshot-preview" alt="Attached screenshot" />
         </div>
-        <div class="card-actions">
-          <button type="button" data-action="open">Open issue link</button>
-          <button type="button" data-action="copy">Copy report content</button>
-          <button type="button" data-action="reported">Mark reported</button>
+        <div class="admin-actions" hidden>
           <button type="button" data-action="resolved">Resolve</button>
           <button type="button" data-action="delete" class="danger">Delete</button>
         </div>
