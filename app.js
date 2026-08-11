@@ -6,7 +6,6 @@ const BUCKET = "report-screenshots";
 const state = {
   issues: [],
   search: "",
-  statusFilter: "all",
   severityFilter: "all",
 };
 
@@ -16,6 +15,7 @@ const emptyState = document.querySelector("#emptyState");
 const template = document.querySelector("#issueTemplate");
 const syncState = document.querySelector("#syncState");
 const submitBtn = document.querySelector("#submitBtn");
+const reportedStorageKey = "amanah-reported-issue-ids";
 
 function setSync(message) {
   syncState.textContent = message;
@@ -83,6 +83,7 @@ async function addIssue(event) {
       screenshot_name: screenshotName || null,
       status: "Open",
       checklist: {},
+      report_count: 0,
     };
 
     const [row] = await requestJson(`${SUPABASE_URL}/rest/v1/report_issues`, {
@@ -128,49 +129,35 @@ async function uploadScreenshot(path, blob) {
   }
 }
 
-async function updateIssue(issue, changes) {
+async function reportIssue(issue) {
+  const nextCount = issue.reportCount + 1;
   const nextIssue = normalizeIssue({
     ...issue,
-    ...changes,
+    reportCount: nextCount,
+    checklist: { ...issue.checklist, reported: true },
     updatedAt: new Date().toISOString(),
   });
   state.issues = state.issues.map((item) => (item.id === issue.id ? nextIssue : item));
+  markReportedLocally(issue.id);
   render();
   setSync("Saving...");
 
   try {
-    const payload = {};
-    if (changes.status) payload.status = changes.status;
-    if (changes.checklist) payload.checklist = changes.checklist;
-    payload.updated_at = new Date().toISOString();
-
     await requestJson(`${SUPABASE_URL}/rest/v1/report_issues?id=eq.${issue.id}`, {
       method: "PATCH",
       headers: headers({
         "content-type": "application/json",
         prefer: "return=minimal",
       }),
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        report_count: nextCount,
+        checklist: nextIssue.checklist,
+        updated_at: nextIssue.updatedAt,
+      }),
     });
     setSync("Cloud saved");
   } catch (error) {
-    setSync(cleanError(error));
-    await refreshData();
-  }
-}
-
-async function deleteIssue(issue) {
-  state.issues = state.issues.filter((item) => item.id !== issue.id);
-  render();
-  setSync("Saving...");
-
-  try {
-    await requestJson(`${SUPABASE_URL}/rest/v1/report_issues?id=eq.${issue.id}`, {
-      method: "DELETE",
-      headers: headers({ prefer: "return=minimal" }),
-    });
-    setSync("Cloud saved");
-  } catch (error) {
+    unmarkReportedLocally(issue.id);
     setSync(cleanError(error));
     await refreshData();
   }
@@ -191,6 +178,7 @@ function fromRow(row) {
     screenshotName: row.screenshot_name || "",
     status: row.status,
     checklist: row.checklist || {},
+    reportCount: row.report_count || 0,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   });
@@ -208,6 +196,7 @@ function normalizeIssue(issue = {}) {
     screenshotName: issue.screenshotName || "",
     status: issue.status || "Open",
     checklist: issue.checklist || {},
+    reportCount: Number.isInteger(issue.reportCount) ? issue.reportCount : 0,
     createdAt: issue.createdAt || new Date().toISOString(),
     updatedAt: issue.updatedAt || new Date().toISOString(),
   };
@@ -269,10 +258,33 @@ function filteredIssues() {
     const text = `${issue.url} ${issue.reportContent} ${issue.platform}`.toLowerCase();
     return (
       (!query || text.includes(query)) &&
-      (state.statusFilter === "all" || issue.status === state.statusFilter) &&
       (state.severityFilter === "all" || issue.severity === state.severityFilter)
     );
   });
+}
+
+function reportedIds() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(reportedStorageKey)) || []);
+  } catch {
+    return new Set();
+  }
+}
+
+function markReportedLocally(issueId) {
+  const ids = reportedIds();
+  ids.add(issueId);
+  localStorage.setItem(reportedStorageKey, JSON.stringify([...ids]));
+}
+
+function unmarkReportedLocally(issueId) {
+  const ids = reportedIds();
+  ids.delete(issueId);
+  localStorage.setItem(reportedStorageKey, JSON.stringify([...ids]));
+}
+
+function hasReportedLocally(issueId) {
+  return reportedIds().has(issueId);
 }
 
 function renderStats() {
@@ -280,9 +292,10 @@ function renderStats() {
   document.querySelector("#openCount").textContent = state.issues.filter(
     (issue) => issue.status === "Open"
   ).length;
-  document.querySelector("#reportedCount").textContent = state.issues.filter(
-    (issue) => issue.status === "Reported"
-  ).length;
+  document.querySelector("#reportedCount").textContent = state.issues.reduce(
+    (total, issue) => total + issue.reportCount,
+    0
+  );
   document.querySelector("#highCount").textContent = state.issues.filter(
     (issue) => issue.severity === "High"
   ).length;
@@ -308,17 +321,22 @@ function renderIssues() {
     node.querySelector("h3").textContent = issueTitle(issue);
     node.querySelector(".badge").textContent = issue.severity;
     node.querySelector(".badge").style.background = badgeColor(issue.severity);
-    node.querySelector(".status-pill").textContent = issue.status;
+    node.querySelector(".count-pill").textContent = reportCountLabel(issue.reportCount);
     node.querySelector(".url").textContent = issue.url;
     node.querySelector(".url").href = issue.url;
     node.querySelector(".report-content").textContent = issue.reportContent;
+    const reportButton = node.querySelector('[data-action="report"]');
+    if (hasReportedLocally(issue.id)) {
+      reportButton.textContent = "Reported";
+      reportButton.classList.add("is-reported");
+      reportButton.disabled = true;
+    }
 
     if (issue.screenshot) {
       screenshot.src = issue.screenshot;
       screenshot.hidden = false;
     } else {
       screenshot.hidden = true;
-      node.querySelector('[data-action="screenshot"]').disabled = true;
     }
     issueList.appendChild(node);
   });
@@ -339,6 +357,10 @@ function badgeColor(severity) {
   return "#edf5f1";
 }
 
+function reportCountLabel(count) {
+  return `${count} ${count === 1 ? "report" : "reports"}`;
+}
+
 function render() {
   renderStats();
   renderIssues();
@@ -350,11 +372,6 @@ document.querySelector("#refreshBtn").addEventListener("click", refreshData);
 
 document.querySelector("#search").addEventListener("input", (event) => {
   state.search = event.target.value;
-  renderIssues();
-});
-
-document.querySelector("#statusFilter").addEventListener("change", (event) => {
-  state.statusFilter = event.target.value;
   renderIssues();
 });
 
@@ -372,39 +389,21 @@ issueList.addEventListener("click", async (event) => {
   if (!issue) return;
 
   const action = button.dataset.action;
-  if (action === "open") {
-    window.open(issue.url, "_blank", "noreferrer");
-  }
   if (action === "copy") {
     await copyText(issue.reportContent);
-    await updateIssue(issue, {
-      checklist: { ...issue.checklist, copied: true },
-    });
     button.textContent = "Copied";
-    setTimeout(() => (button.textContent = "Copy"), 1200);
+    setTimeout(() => (button.textContent = "Copy content"), 1200);
   }
-  if (action === "screenshot" && issue.screenshot) {
-    window.open(issue.screenshot, "_blank", "noreferrer");
-  }
-  if (action === "reported") {
-    await updateIssue(issue, {
-      status: "Reported",
-      checklist: { ...issue.checklist, reported: true },
-    });
+  if (action === "report") {
+    button.disabled = true;
+    button.textContent = "Saving";
+    await reportIssue(issue);
   }
   if (action === "details") {
     const details = card.querySelector(".issue-details");
-    const adminActions = card.querySelector(".admin-actions");
     const shouldOpen = details.hidden;
     details.hidden = !shouldOpen;
-    adminActions.hidden = !shouldOpen;
     button.textContent = shouldOpen ? "Hide" : "Details";
-  }
-  if (action === "resolved") {
-    await updateIssue(issue, { status: "Resolved" });
-  }
-  if (action === "delete") {
-    await deleteIssue(issue);
   }
 });
 

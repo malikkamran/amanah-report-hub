@@ -100,12 +100,6 @@
 
         <section class="panel filters" aria-label="Filters">
           <input id="search" type="search" placeholder="Search URL, report content, platform..." />
-          <select id="statusFilter">
-            <option value="all">All statuses</option>
-            <option value="Open">Open</option>
-            <option value="Reported">Reported</option>
-            <option value="Resolved">Resolved</option>
-          </select>
           <select id="severityFilter">
             <option value="all">All priorities</option>
             <option>High</option>
@@ -136,26 +130,20 @@
             <div class="tag-row">
               <span class="platform-tag"></span>
               <span class="badge"></span>
-              <span class="status-pill"></span>
+              <span class="count-pill"></span>
             </div>
             <h3></h3>
             <a class="url" target="_blank" rel="noreferrer"></a>
           </div>
           <div class="quick-actions">
-            <button type="button" data-action="open">Open</button>
-            <button type="button" data-action="copy">Copy</button>
-            <button type="button" data-action="screenshot">Image</button>
-            <button type="button" data-action="reported">Reported</button>
+            <button type="button" data-action="report" class="report-button">Report</button>
             <button type="button" data-action="details">Details</button>
           </div>
         </div>
         <div class="issue-details" hidden>
+          <button type="button" data-action="copy" class="copy-detail">Copy content</button>
           <div class="report-content"></div>
           <img class="screenshot-preview" alt="Attached screenshot" />
-        </div>
-        <div class="admin-actions" hidden>
-          <button type="button" data-action="resolved">Resolve</button>
-          <button type="button" data-action="delete" class="danger">Delete</button>
         </div>
       </article>
     </template>

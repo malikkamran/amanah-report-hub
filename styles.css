@@ -253,7 +253,7 @@ textarea:focus {
 
 .filters {
   display: grid;
-  grid-template-columns: 1fr 180px 180px;
+  grid-template-columns: 1fr 180px;
   gap: 10px;
   padding: 12px;
   box-shadow: none;
@@ -296,7 +296,7 @@ textarea:focus {
 }
 
 .platform-tag,
-.status-pill {
+.count-pill {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
@@ -308,7 +308,7 @@ textarea:focus {
   font-weight: 800;
 }
 
-.status-pill {
+.count-pill {
   background: #edf5f1;
   color: var(--green-dark);
 }
@@ -323,8 +323,7 @@ textarea:focus {
   font-weight: 700;
 }
 
-.quick-actions,
-.admin-actions {
+.quick-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -332,7 +331,7 @@ textarea:focus {
 }
 
 .quick-actions button,
-.admin-actions button {
+.copy-detail {
   min-height: 34px;
   padding: 0 10px;
   font-size: 0.8rem;
@@ -343,8 +342,20 @@ textarea:focus {
   opacity: 0.45;
 }
 
+.report-button.is-reported {
+  border-color: #0f6b4a;
+  background: #0f6b4a;
+  color: #fff;
+}
+
 .issue-details {
+  display: grid;
+  gap: 10px;
   margin-top: 12px;
+}
+
+.copy-detail {
+  justify-self: start;
 }
 
 .report-content {
@@ -375,10 +386,6 @@ textarea:focus {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #f7f8f7;
-}
-
-.admin-actions {
-  margin-top: 10px;
 }
 
 .empty {
@@ -413,8 +420,7 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
-  .quick-actions,
-  .admin-actions {
+  .quick-actions {
     justify-content: start;
   }
 }

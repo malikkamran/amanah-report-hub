@@ -10,4 +10,4 @@ Cloud backend: Supabase free project.
 - Storage bucket: `report-screenshots`
 - Hosting: GitHub Pages
 
-The frontend uses Supabase's public anon key with row-level security policies that allow open community read/write/update/delete for this prototype.
+The frontend uses Supabase's public anon key with row-level security policies that allow open community read/insert and limited report-count updates. Public delete is blocked.
